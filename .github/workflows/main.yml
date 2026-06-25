@@ -1,7 +1,7 @@
 on:
   push:
   schedule:
-    # Roz subah 9:00 baje IST (UTC 3:30 AM)
-    - cron: '30 3 * * *' 
+    # 3:30, 6:30, and 9:30 UTC = 9:00, 12:00, and 15:00 IST
+    - cron: '30 3,6,9 * * *'
   workflow_dispatch:
   
