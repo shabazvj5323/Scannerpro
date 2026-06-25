@@ -27,4 +27,5 @@ jobs:
           git config --global user.email 'bot@email.com'
           git add index.html
           git commit -m "Update hourly stocks" || echo "No changes"
-          git push
+          git push --force
+          
