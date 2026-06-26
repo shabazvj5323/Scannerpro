@@ -1,5 +1,6 @@
 import yfinance as yf
 import os
+import pandas as pd
 from datetime import datetime
 import pytz
 from concurrent.futures import ThreadPoolExecutor
@@ -17,28 +18,36 @@ def check_stock(ticker):
         if df is None or df.empty:
             return None
 
-        # FIX: yfinance kabhi-kabhi MultiIndex columns deta hai even for single ticker
-        if isinstance(df.columns, type(df.columns)) and hasattr(df.columns, 'nlevels') and df.columns.nlevels > 1:
+        # FIX: proper MultiIndex flatten check using pandas isinstance
+        if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
         if len(df) < 50:
             return None
 
-        df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean()
-        df['EMA30'] = df['Close'].ewm(span=30, adjust=False).mean()
-        df['EMA50'] = df['Close'].ewm(span=50, adjust=False).mean()
+        close = df['Close']
+        volume = df['Volume']
 
-        c = df.iloc[-1]   # Latest Candle (Live ya Last Close)
-        p = df.iloc[-2]   # Previous Candle
+        # Agar still Series nahi hai (DataFrame hai), to squeeze kar do
+        if isinstance(close, pd.DataFrame):
+            close = close.iloc[:, 0]
+        if isinstance(volume, pd.DataFrame):
+            volume = volume.iloc[:, 0]
 
-        # S1: Live Momentum (Current candle)
-        s1 = bool((c['EMA20'] > c['EMA30'] > c['EMA50']) and (c['Volume'] > p['Volume'] * 1.5))
+        ema20 = close.ewm(span=20, adjust=False).mean()
+        ema30 = close.ewm(span=30, adjust=False).mean()
+        ema50 = close.ewm(span=50, adjust=False).mean()
 
-        # S2: Last Closing data
-        s2 = bool(p['EMA20'] > p['EMA30'] > p['EMA50'])
+        c_close = close.iloc[-1]
+        c_vol = volume.iloc[-1]
+        p_vol = volume.iloc[-2]
 
-        # S3: Crossover hone wala hai
-        s3 = bool(abs(c['EMA20'] - c['EMA30']) < (c['Close'] * 0.002))
+        c_e20, c_e30, c_e50 = ema20.iloc[-1], ema30.iloc[-1], ema50.iloc[-1]
+        p_e20, p_e30, p_e50 = ema20.iloc[-2], ema30.iloc[-2], ema50.iloc[-2]
+
+        s1 = bool((c_e20 > c_e30 > c_e50) and (c_vol > p_vol * 1.5))
+        s2 = bool(p_e20 > p_e30 > p_e50)
+        s3 = bool(abs(c_e20 - c_e30) < (c_close * 0.002))
 
         return {'ticker': ticker, 's1': s1, 's2': s2, 's3': s3}
     except Exception as e:
