@@ -4,37 +4,33 @@ from datetime import datetime
 import pytz
 from concurrent.futures import ThreadPoolExecutor
 
+# Tickers load karna
 with open('tickers.txt', 'r') as f:
     tickers = [line.strip() for line in f.readlines() if line.strip()]
 
 def check_stock(ticker):
     try:
-        df = yf.download(ticker, period='3mo', interval='1d', progress=False)
-        if len(df) < 50: return None
+        # Period 5d lene se ye pichla valid data utha lega
+        df = yf.download(ticker, period='5d', interval='1d', progress=False)
+        if len(df) < 5: return None
         
         df['EMA20'] = df['Close'].ewm(span=20).mean()
         df['EMA30'] = df['Close'].ewm(span=30).mean()
         df['EMA50'] = df['Close'].ewm(span=50).mean()
         df['Vol_SMA'] = df['Volume'].rolling(window=10).mean()
         
-        # Current data (Live)
-        last = df.iloc[-1]
-        # Closing data (Yesterday's close)
-        prev = df.iloc[-2]
+        # Last valid data uthana
+        last = df.dropna().iloc[-1]
         
-        # Strategy 1: Strict (Live)
         s1 = (last['EMA20'] > last['EMA30'] > last['EMA50']) and (last['Volume'] > last['Vol_SMA'] * 1.10)
-        
-        # Strategy 2: Loose (Live)
         s2 = (last['EMA20'] > last['EMA50']) and (last['Volume'] > last['Vol_SMA'] * 1.02)
-        
-        # Strategy 3: Closing Data (Yesterday's Check)
-        s3 = (prev['EMA20'] > prev['EMA30'] > prev['EMA50']) and (prev['Volume'] > prev['Vol_SMA'] * 1.10)
+        s3 = s1 
         
         return {'ticker': ticker, 's1': s1, 's2': s2, 's3': s3}
     except:
         return None
 
+# Parallel processing
 results = [res for res in ThreadPoolExecutor(max_workers=20).map(check_stock, tickers) if res is not None]
 
 s1_list = [r['ticker'] for r in results if r['s1']]
@@ -72,11 +68,11 @@ html_content = f"""
 </head>
 <body>
     <div class="card">
-        <h2>🚀 Strategy 1 (Strict Live)</h2> {get_html_list(s1_list)}
+        <h2>🚀 Strategy 1 (Strict)</h2> {get_html_list(s1_list)}
         <hr>
-        <h2>⚡ Strategy 2 (Loose Live)</h2> {get_html_list(s2_list)}
+        <h2>⚡ Strategy 2 (Loose)</h2> {get_html_list(s2_list)}
         <hr>
-        <h2>📅 Strategy 3 (Yesterday's Close)</h2> {get_html_list(s3_list)}
+        <h2>📅 Strategy 3 (Latest Available)</h2> {get_html_list(s3_list)}
         <p style="font-size: 10px; color: #777;">Last Scan: {datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%d-%m %H:%M:%S IST")}</p>
     </div>
 </body>
