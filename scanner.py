@@ -12,30 +12,28 @@ with open(tickers_path, 'r') as f:
 
 def check_stock(ticker):
     try:
-        df_5m = yf.download(ticker, period='5d', interval='5m', progress=False)
-        df_1d = yf.download(ticker, period='3mo', interval='1d', progress=False)
+        df = yf.download(ticker, period='5d', interval='5m', progress=False)
+        if len(df) < 60: return None
         
-        if len(df_5m) < 50 or len(df_1d) < 50: return None
+        # EMA Indicators
+        df['EMA20'] = df['Close'].ewm(span=20).mean()
+        df['EMA30'] = df['Close'].ewm(span=30).mean()
+        df['EMA50'] = df['Close'].ewm(span=50).mean()
         
-        # Calculations
-        df_5m['EMA20'] = df_5m['Close'].ewm(span=20).mean()
-        df_5m['EMA50'] = df_5m['Close'].ewm(span=50).mean()
-        df_5m['Vol_SMA'] = df_5m['Volume'].rolling(window=20).mean()
+        # Volume Indicator (20 period SMA)
+        df['Vol_SMA'] = df['Volume'].rolling(window=20).mean()
         
-        df_1d['EMA20'] = df_1d['Close'].ewm(span=20).mean()
-        df_1d['EMA30'] = df_1d['Close'].ewm(span=30).mean()
-        df_1d['EMA50'] = df_1d['Close'].ewm(span=50).mean()
-        df_1d['Vol_SMA'] = df_1d['Volume'].rolling(window=10).mean()
+        last = df.iloc[-1]
         
-        last_5m = df_5m.iloc[-1]
-        prev_1d = df_1d.iloc[-2]
+        # LOGIC: 
+        # 1. 20 > 30 > 50 EMA Alignment
+        # 2. Last 5m candle volume > 10% of 20-period average volume
+        ema_check = (last['EMA20'] > last['EMA30'] > last['EMA50'])
+        vol_check = (last['Volume'] > last['Vol_SMA'] * 1.10)
         
-        # Real Strategies
-        s1 = (last_5m['EMA20'] > last_5m['EMA50']) and (last_5m['Volume'] > last_5m['Vol_SMA'] * 1.5)
-        s2 = (prev_1d['EMA20'] > prev_1d['EMA30'] > prev_1d['EMA50'])
-        s3 = (prev_1d['EMA20'] > prev_1d['EMA30'] > prev_1d['EMA50']) and (prev_1d['Volume'] > prev_1d['Vol_SMA'] * 1.10)
+        s1 = ema_check and vol_check
         
-        return {'ticker': ticker, 's1': s1, 's2': s2, 's3': s3}
+        return {'ticker': ticker, 's1': s1}
     except:
         return None
 
@@ -55,11 +53,8 @@ html_content = f"""
 <html>
 <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body>
-<h3>🚀 S1: Live 5m Momentum</h3><ul>{get_html_list('s1')}</ul>
-<hr>
-<h3>📅 S2: Prev Day Trend (20>30>50)</h3><ul>{get_html_list('s2')}</ul>
-<hr>
-<h3>💎 S3: Strict Prev (20>30>50 + 10% Vol)</h3><ul>{get_html_list('s3')}</ul>
+<h3>🎯 3-EMA (20>30>50) + 10% Vol Spike</h3>
+<ul>{get_html_list('s1')}</ul>
 <p>Last Update: {datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%d-%m %H:%M:%S")}</p>
 </body>
 </html>
