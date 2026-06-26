@@ -71,7 +71,7 @@ def get_list(key):
     items = ""
     for s in filtered:
         symbol = s.replace(".NS", "")
-        url = f"https://kite.zerodha.com/chart/ext/tvc/NSE/{symbol}"
+        url = f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
         items += f'<a class="chip" href="{url}" target="_blank">{symbol}</a>'
     return f'<div class="chips">{items}</div>'
 
@@ -167,7 +167,7 @@ body {{
 
 <div class="header">
     <h1>📊 EMA Scanner</h1>
-    <p>Nifty 500 • Tap any stock to view Zerodha chart</p>
+    <p>Nifty 500 • Tap any stock to view TradingView chart</p>
 </div>
 
 <div class="card s1">
