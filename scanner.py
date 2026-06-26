@@ -33,7 +33,9 @@ def check_stock(ticker):
         last_5m = df_5m.iloc[-1]
         prev_1d = df_1d.iloc[-2]
         
-        s1 = (last_5m['EMA20'] > last_5m['EMA50']) and (last_5m['Volume'] > last_5m['Vol_SMA'] * 1.5)
+        # --- TEST MODE LOGIC ---
+        s1 = True  # Sabhi stocks dikhenge
+        # --- ORIGINAL STRATEGY ---
         s2 = (prev_1d['EMA20'] > prev_1d['EMA30'] > prev_1d['EMA50'])
         s3 = (prev_1d['EMA20'] > prev_1d['EMA30'] > prev_1d['EMA50']) and (prev_1d['Volume'] > prev_1d['Vol_SMA'] * 1.10)
         
@@ -59,7 +61,7 @@ html_content = f"""
 <html>
 <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body>
-<h3>🚀 S1: Live 5m Momentum</h3><ul>{get_html_list('s1')}</ul>
+<h3>🚀 S1: TEST MODE (Active)</h3><ul>{get_html_list('s1')}</ul>
 <hr>
 <h3>📅 S2: Prev Day Trend (20>30>50)</h3><ul>{get_html_list('s2')}</ul>
 <hr>
