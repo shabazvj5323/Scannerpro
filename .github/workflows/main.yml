@@ -1,31 +1,30 @@
-name: Hourly Scanner
+name: Scanner Workflow
 on:
   push:
-  schedule:
-    - cron: '30 3,6,9 * * *'
   workflow_dispatch:
-
-permissions:
-  contents: write
+  schedule:
+    - cron: '*/15 * * * *' # Har 15 minute mein scan karega
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v3
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
       - name: Install dependencies
         run: pip install yfinance pandas pytz
-      - name: Run Scanner
+      - name: Run scanner
         run: python scanner.py
       - name: Commit and Push
         run: |
-          git config --global user.name 'bot'
-          git config --global user.email 'bot@email.com'
+          git config --local user.name "GitHub Action"
+          git config --local user.email "action@github.com"
           git add index.html
-          git commit -m "Update hourly stocks" || echo "No changes"
-          git push --force
+          git commit -m "Automated Scan Update" || echo "No changes to commit"
+          git push
           
