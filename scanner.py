@@ -1,26 +1,32 @@
 import yfinance as yf
-from concurrent.futures import ThreadPoolExecutor
+import os
+from datetime import datetime
+import pytz
 
-with open('tickers.txt', 'r') as f:
+# File Path fix
+base_path = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(base_path, 'tickers.txt')
+
+with open(file_path, 'r') as f:
     tickers = [line.strip() for line in f.readlines() if line.strip()]
 
-def check_stock(ticker):
-    try:
-        df = yf.download(ticker, period='5d', interval='1d', progress=False)
-        if len(df) < 5: return None
-        # SIRF TEST: Koi filter nahi, bas pehle 5 stocks uthao
-        return ticker
-    except:
-        return None
-
-# Sirf pehle 10 stocks check karte hain
 results = []
-with ThreadPoolExecutor(max_workers=5) as executor:
-    results = list(executor.map(check_stock, tickers[:10]))
+# Sirf pehle 50 stocks check karte hain taaki timeout na ho
+for t in tickers[:50]: 
+    try:
+        df = yf.download(t, period='5d', interval='1d', progress=False)
+        if not df.empty:
+            results.append(t)
+    except:
+        continue
 
-s3_list = [r for r in results if r is not None]
-
-# UI mein dikha do
-html_content = f"<html><body><h2>TEST (First 10 Stocks):</h2><ul>" + "".join([f"<li>{s}</li>" for s in s3_list]) + "</ul></body></html>"
+# HTML update
+html_content = f"""
+<html><body>
+<h2>Scanning Status: {len(results)} Stocks Found</h2>
+<ul>{''.join([f'<li>{s}</li>' for s in results])}</ul>
+<p>Last Update: {datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%d-%m %H:%M:%S")}</p>
+</body></html>
+"""
 with open("index.html", "w") as f: f.write(html_content)
     
