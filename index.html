@@ -22,6 +22,22 @@ body {
     padding: 16px;
     margin-top: 20px;
 }
+.card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+.count {
+    background: #1f6feb;
+    color: white;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: auto;
+}
 .chips { display: flex; flex-direction: column; gap: 10px; }
 .chip {
     background: #21262d;
@@ -36,7 +52,7 @@ body {
     justify-content: space-between;
 }
 .vol { color: #8b949e; font-size: 13px; font-weight: 400; }
-.empty { color: #6e7681; font-style: italic; font-size: 14px; }
+.empty { color: #6e7681; font-style: italic; font-size: 14px; margin: 0; }
 .footer { text-align: center; color: #6e7681; font-size: 12px; margin-top: 20px; }
 </style>
 </head>
@@ -47,13 +63,26 @@ body {
     <p>EMA20&gt;30&gt;50 just crossed + Bullish candle + Volume spike (5x+)</p>
 </div>
 
+
 <div class="card">
+    <div class="card-title">⚡ 5min Crossover <span class="count">0</span></div>
     <p class="empty">No match right now</p>
 </div>
 
+<div class="card">
+    <div class="card-title">🚀 15min Crossover <span class="count">0</span></div>
+    <p class="empty">No match right now</p>
+</div>
+
+<div class="card">
+    <div class="card-title">📈 30min Crossover <span class="count">0</span></div>
+    <p class="empty">No match right now</p>
+</div>
+
+
 <div class="footer">
-    Update: 28-06 00:29 IST<br>
-    Scanned: 500 tickers
+    Update: 28-06 00:39 IST<br>
+    Scanned: 500 tickers across 3 timeframes
 </div>
 
 </body>
