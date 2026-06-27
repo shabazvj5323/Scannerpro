@@ -11,11 +11,18 @@ tickers_path = os.path.join(base_path, 'tickers.txt')
 with open(tickers_path, 'r') as f:
     tickers = [line.strip() for line in f.readlines() if line.strip()]
 
-VOLUME_MULTIPLIER = 5   # current volume kam se kam 5x pichle candle se zyada ho
+VOLUME_MULTIPLIER = 5
 
-def check_stock(ticker):
+# Timeframes to scan: (label, yfinance interval, yfinance period)
+TIMEFRAMES = [
+    ("5min", "5m", "5d"),
+    ("15min", "15m", "1mo"),
+    ("30min", "30m", "1mo"),
+]
+
+def check_stock(ticker, interval, period):
     try:
-        df = yf.download(ticker, period='5d', interval='5m', progress=False, auto_adjust=True)
+        df = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=True)
 
         if df is None or df.empty:
             return None
@@ -41,23 +48,16 @@ def check_stock(ticker):
         ema30 = close.ewm(span=30, adjust=False).mean()
         ema50 = close.ewm(span=50, adjust=False).mean()
 
-        # Current (latest) candle
         c_open, c_close = open_.iloc[-1], close.iloc[-1]
         c_vol, p_vol = volume.iloc[-1], volume.iloc[-2]
         c_e20, c_e30, c_e50 = ema20.iloc[-1], ema30.iloc[-1], ema50.iloc[-1]
-
-        # Previous candle (to detect fresh crossover)
         p_e20, p_e30, p_e50 = ema20.iloc[-2], ema30.iloc[-2], ema50.iloc[-2]
 
-        # Condition 1: Abhi alignment bana hai (current candle), pehle nahi tha
         aligned_now = c_e20 > c_e30 > c_e50
         aligned_before = p_e20 > p_e30 > p_e50
         fresh_crossover = aligned_now and not aligned_before
 
-        # Condition 2: Solid bullish candle
         bullish = c_close > c_open
-
-        # Condition 3: Volume spike (current vs previous candle)
         volume_spike = p_vol > 0 and c_vol > (p_vol * VOLUME_MULTIPLIER)
 
         match = bool(fresh_crossover and bullish and volume_spike)
@@ -72,25 +72,40 @@ def check_stock(ticker):
         return None
 
     except Exception as e:
-        print(f"Error on {ticker}: {e}")
+        print(f"Error on {ticker} [{interval}]: {e}")
         return None
 
-with ThreadPoolExecutor(max_workers=10) as executor:
-    raw_results = list(executor.map(check_stock, tickers))
+all_results = {}
 
-results = [r for r in raw_results if r is not None]
+for label, interval, period in TIMEFRAMES:
+    print(f"--- Scanning {label} ---")
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        raw = list(executor.map(lambda t: check_stock(t, interval, period), tickers))
+    matches = [r for r in raw if r is not None]
+    all_results[label] = matches
+    print(f"{label}: {len(matches)} matches / {len(tickers)} tickers")
 
-print(f"Matches found: {len(results)} / {len(tickers)} tickers scanned")
-
-def get_list():
-    if not results:
+def get_list(matches):
+    if not matches:
         return '<p class="empty">No match right now</p>'
     items = ""
-    for r in results:
+    for r in matches:
         symbol = r['ticker'].replace(".NS", "")
         url = f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
         items += f'<a class="chip" href="{url}" target="_blank">{symbol} <span class="vol">₹{r["close"]} | Vol {r["cur_vol"]:,}</span></a>'
     return f'<div class="chips">{items}</div>'
+
+cards_html = ""
+icons = {"5min": "⚡", "15min": "🚀", "30min": "📈"}
+for label, _, _ in TIMEFRAMES:
+    matches = all_results[label]
+    icon = icons.get(label, "📊")
+    cards_html += f"""
+<div class="card">
+    <div class="card-title">{icon} {label} Crossover <span class="count">{len(matches)}</span></div>
+    {get_list(matches)}
+</div>
+"""
 
 html = f"""<!DOCTYPE html>
 <html>
@@ -116,6 +131,22 @@ body {{
     padding: 16px;
     margin-top: 20px;
 }}
+.card-title {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}}
+.count {{
+    background: #1f6feb;
+    color: white;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: auto;
+}}
 .chips {{ display: flex; flex-direction: column; gap: 10px; }}
 .chip {{
     background: #21262d;
@@ -130,7 +161,7 @@ body {{
     justify-content: space-between;
 }}
 .vol {{ color: #8b949e; font-size: 13px; font-weight: 400; }}
-.empty {{ color: #6e7681; font-style: italic; font-size: 14px; }}
+.empty {{ color: #6e7681; font-style: italic; font-size: 14px; margin: 0; }}
 .footer {{ text-align: center; color: #6e7681; font-size: 12px; margin-top: 20px; }}
 </style>
 </head>
@@ -141,13 +172,11 @@ body {{
     <p>EMA20&gt;30&gt;50 just crossed + Bullish candle + Volume spike (5x+)</p>
 </div>
 
-<div class="card">
-    {get_list()}
-</div>
+{cards_html}
 
 <div class="footer">
     Update: {datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%d-%m %H:%M")} IST<br>
-    Scanned: {len(tickers)} tickers
+    Scanned: {len(tickers)} tickers across 3 timeframes
 </div>
 
 </body>
