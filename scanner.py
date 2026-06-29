@@ -50,24 +50,40 @@ def check_stock(ticker, interval, period):
 
         c_open, c_close = open_.iloc[-1], close.iloc[-1]
         c_vol, p_vol = volume.iloc[-1], volume.iloc[-2]
-        c_e20, c_e30, c_e50 = ema20.iloc[-1], ema30.iloc[-1], ema50.iloc[-1]
-        p_e20, p_e30, p_e50 = ema20.iloc[-2], ema30.iloc[-2], ema50.iloc[-2]
 
+        # Current candle alignment
+        c_e20, c_e30, c_e50 = ema20.iloc[-1], ema30.iloc[-1], ema50.iloc[-1]
         aligned_now = c_e20 > c_e30 > c_e50
+
+        # Immediate previous candle (for strict "exact crossing" check)
+        p_e20, p_e30, p_e50 = ema20.iloc[-2], ema30.iloc[-2], ema50.iloc[-2]
         aligned_before = p_e20 > p_e30 > p_e50
+
+        # 2 candles back (for "recent crossover, last 2-3 candles" check)
+        b2_e20, b2_e30, b2_e50 = ema20.iloc[-3], ema30.iloc[-3], ema50.iloc[-3]
+        aligned_2_back = b2_e20 > b2_e30 > b2_e50
+
+        # Strategy A: exact fresh crossover (this candle only)
         fresh_crossover = aligned_now and not aligned_before
+
+        # Strategy B: recent crossover (within last 2-3 candles)
+        recent_crossover = aligned_now and not aligned_2_back
+
+        # Match if EITHER condition is true
+        crossover_condition = fresh_crossover or recent_crossover
 
         bullish = c_close > c_open
         volume_spike = p_vol > 0 and c_vol > (p_vol * VOLUME_MULTIPLIER)
 
-        match = bool(fresh_crossover and bullish and volume_spike)
+        match = bool(crossover_condition and bullish and volume_spike)
 
         if match:
             return {
                 'ticker': ticker,
                 'close': round(float(c_close), 2),
                 'cur_vol': int(c_vol),
-                'prev_vol': int(p_vol)
+                'prev_vol': int(p_vol),
+                'type': 'Exact Cross' if fresh_crossover else 'Recent Cross'
             }
         return None
 
@@ -92,7 +108,7 @@ def get_list(matches):
     for r in matches:
         symbol = r['ticker'].replace(".NS", "")
         url = f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
-        items += f'<a class="chip" href="{url}" target="_blank">{symbol} <span class="vol">₹{r["close"]} | Vol {r["cur_vol"]:,}</span></a>'
+        items += f'<a class="chip" href="{url}" target="_blank">{symbol} <span class="vol">₹{r["close"]} | Vol {r["cur_vol"]:,} | {r["type"]}</span></a>'
     return f'<div class="chips">{items}</div>'
 
 cards_html = ""
@@ -102,7 +118,7 @@ for label, _, _ in TIMEFRAMES:
     icon = icons.get(label, "📊")
     cards_html += f"""
 <div class="card">
-    <div class="card-title">{icon} {label} Crossover <span class="count">{len(matches)}</span></div>
+    <div class="card-title">{icon} {label} Bullish Crossover <span class="count">{len(matches)}</span></div>
     {get_list(matches)}
 </div>
 """
@@ -168,8 +184,8 @@ body {{
 <body>
 
 <div class="header">
-    <h1>🚀 Fresh Bullish Crossover</h1>
-    <p>EMA20&gt;30&gt;50 just crossed + Bullish candle + Volume spike (5x+)</p>
+    <h1>🚀 Bullish Crossover Scanner</h1>
+    <p>EMA20&gt;30&gt;50 crossover (exact or recent) + Bullish candle + Volume spike (5x+)</p>
 </div>
 
 {cards_html}
